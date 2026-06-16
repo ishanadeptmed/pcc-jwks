@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives import serialization
 
 app = FastAPI(title="PCC Bulk FHIR Integration")
 
-TOKEN_URL = "https://preview.pointclickcare.com/auth/oauth/v2/token"
+TOKEN_URL = "https://connect.pointclickcare.com/fhir/oauth/token"
 JWKS_FILE = os.getenv("JWKS_FILE", "jwks.json")
 CLIENT_ID = os.getenv("CLIENT_ID")
 PRIVATE_KEY_B64 = os.getenv("PRIVATE_KEY_B64")
@@ -75,7 +75,8 @@ def get_token():
         data = {
             "grant_type": "client_credentials",
             "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            "client_assertion": client_assertion
+            "client_assertion": client_assertion,
+            "scope": "openid system/*.read system/Group.write"
         }
 
         headers = {
