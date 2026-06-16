@@ -98,3 +98,12 @@ def get_token():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/debug-jwt")
+def debug_jwt():
+    return {
+        "client_id": CLIENT_ID,
+        "aud": TOKEN_URL,
+        "kid": "pcc-key-1"
+    }
