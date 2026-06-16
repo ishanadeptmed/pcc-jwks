@@ -1,0 +1,11 @@
+How to run:
+
+conda activate my_fhir_app
+
+uvicorn main:app --reload
+
+https://lforms-smart-fhir.nlm.nih.gov/?auth_error=&fhir_version_1=r4&fhir_version_2=r4&iss=&launch_ehr=1&launch_url=http%3A%2F%2Flocalhost%3A8000%2Flaunch&patient=&prov_skip_auth=1&provider=&pt_skip_auth=1&public_key=&sb=&sde=&token_lifetime=15&user_pt=
+
+
+
+Import "starlette.middleware.sessions" could not be resolvedPyrightreportMissingImports

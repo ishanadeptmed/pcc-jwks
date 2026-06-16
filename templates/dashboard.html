@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART on FHIR Dashboard</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --bg: #f4f6f9;
+            --text: #333;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 30px; 
+            background-color: var(--bg); 
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 { 
+            color: var(--primary); 
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: var(--secondary);
+            margin-top: 40px;
+            margin-bottom: 15px;
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+            border: 1px solid var(--border);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .data-row { 
+            display: flex;
+            flex-direction: column;
+        }
+
+        .label { 
+            font-weight: 600; 
+            color: #7f8c8d; 
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .value {
+            font-size: 1.1rem;
+            color: var(--primary);
+        }
+
+        /* Styles for the Observation Table */
+        .table-container {
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-top: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--secondary);
+            font-weight: 600;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: #fcfdfe;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            background-color: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .no-data {
+            padding: 20px;
+            text-align: center;
+            color: #a0aec0;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Patient Clinical Dashboard</h1>
+        
+        <h2>Patient Demographics</h2>
+        <div class="card grid">
+            <div class="data-row">
+                <span class="label">Patient ID</span>
+                <span class="value">{{ patient.id | default('N/A') }}</span>
+            </div>
+            <div class="data-row">
+                <span class="label">First Name</span>
+                <span class="value">
+                    {% if patient.name and patient.name[0].given %}
+                        {{ patient.name[0].given[0] }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </span>
+            </div>
+            <div class="data-row">
+                <span class="label">Last Name</span>
+                <span class="value">
+                    {% if patient.name and patient.name[0].family %}
+                        {{ patient.name[0].family }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </span>
+            </div>
+            <div class="data-row">
+                <span class="label">Gender</span>
+                <span class="value" style="text-transform: capitalize;">{{ patient.gender | default('N/A') }}</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Birth Date</span>
+                <span class="value">{{ patient.birthDate | default('N/A') }}</span>
+            </div>
+        </div>
+
+        <h2>Lab Results & Vitals</h2>
+        <div class="table-container">
+            {% if observations and observations|length > 0 %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Test / Observation</th>
+                            <th>Value / Result</th>
+                            <th>Date/Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in observations %}
+                            {% set obs = item.resource %}
+                            <tr>
+                                <td>
+                                    <strong>{{ obs.code.text | default('Unknown Observation') }}</strong>
+                                </td>
+                                <td>
+                                    {# 1. Check for standard ValueQuantity #}
+                                    {% if obs.valueQuantity %}
+                                        {{ obs.valueQuantity.value }} <span class="badge">{{ obs.valueQuantity.unit }}</span>
+                                    
+                                    {# 2. Check for panel-based components like Blood Pressure (Systolic/Diastolic) #}
+                                    {% elif obs.component %}
+                                        {% for comp in obs.component %}
+                                            {{ comp.code.text }}: {{ comp.valueQuantity.value }} {{ comp.valueQuantity.unit }}
+                                            {% if not loop.last %} | {% endif %}
+                                        {% endfor %}
+                                    
+                                    {# 3. Check for text/concept responses #}
+                                    {% elif obs.valueCodeableConcept %}
+                                        {{ obs.valueCodeableConcept.text }}
+                                    {% elif obs.valueString %}
+                                        {{ obs.valueString }}
+                                    {% else %}
+                                        <span style="color: #a0aec0;">No numeric result</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ obs.effectiveDateTime | default('Date not recorded') }}</small>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">No observations found or loaded for this patient session.</div>
+            {% endif %}
+        </div>
+    </div>
+
+</body>
+</html>

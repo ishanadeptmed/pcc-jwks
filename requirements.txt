@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+httpx
+fhir.resources
+jinja2
+requests
+python-dotenv
