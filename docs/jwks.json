@@ -1,0 +1,12 @@
+{
+  "keys": [
+    {
+      "e": "AQAB",
+      "kid": "pcc-key-1",
+      "kty": "RSA",
+      "n": "j2mwMVKXKZHhAiNAgnzv76W8kek28U5PH3yrbnbZZGDB7TRIL-ZwBtHUqEb10KqV_Rck7-5yeBkMdlC54HN_bYZu7B1CtnFYTJaexPZ7DEinf0QRdYY49p7aMyijF6N6tXM227fNpPh-9xOn7oJK2ygrtY46PHLQ8G2LBbc5NwSUbe7WDVFWtFx1pFDVktNuJ6OYU-VC94hbYsVe4D3l-mMmBbcPXXsV252NRpkeh0F5e6sSyzfLB7-cOWfy8epdpHfP27M_Cebywiw5Of6lSBnnICQ0rj0h73aEMZnnCZY9ZGHrFMcV8QI9khARrQyMb2BjbZ24AXNz_oXNLZo_uQ",
+      "alg": "RS384",
+      "use": "sig"
+    }
+  ]
+}
