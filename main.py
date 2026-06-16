@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import base64
 import requests
 import jwt
 from fastapi import FastAPI, HTTPException
@@ -11,6 +12,7 @@ app = FastAPI(title="PCC Bulk FHIR Integration")
 TOKEN_URL = "https://preview.pointclickcare.com/auth/oauth/v2/token"
 JWKS_FILE = os.getenv("JWKS_FILE", "jwks.json")
 CLIENT_ID = os.getenv("CLIENT_ID")
+PRIVATE_KEY_B64 = os.getenv("PRIVATE_KEY_B64")
 
 # -------------------------
 # Load JWKS
@@ -24,14 +26,18 @@ def jwks():
     return load_jwks()
 
 # -------------------------
-# Load private key
+# Load private key (FIXED FOR RENDER)
 # -------------------------
 def load_private_key():
-    with open("private_key.pem", "rb") as f:
-        return serialization.load_pem_private_key(
-            f.read(),
-            password=None
-        )
+    if not PRIVATE_KEY_B64:
+        raise Exception("Missing PRIVATE_KEY_B64 environment variable")
+
+    key_bytes = base64.b64decode(PRIVATE_KEY_B64)
+
+    return serialization.load_pem_private_key(
+        key_bytes,
+        password=None
+    )
 
 # -------------------------
 # Create JWT
@@ -59,7 +65,7 @@ def create_jwt():
     return token
 
 # -------------------------
-# Get Access Token (FIXED)
+# Get Access Token
 # -------------------------
 @app.get("/token")
 def get_token():
@@ -80,7 +86,6 @@ def get_token():
 
         response = requests.post(TOKEN_URL, data=data, headers=headers)
 
-        # DEBUG (important)
         if response.status_code != 200:
             return {
                 "status": "FAILED",
