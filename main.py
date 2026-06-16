@@ -1,138 +1,94 @@
 import os
 import json
-from fastapi import FastAPI, HTTPException, Query
+import time
 import requests
-from dotenv import load_dotenv
+import jwt
+from fastapi import FastAPI, HTTPException
+from cryptography.hazmat.primitives import serialization
 
-# Load environment variables
-load_dotenv()
+app = FastAPI(title="PCC Bulk FHIR Integration")
 
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-
-# Optional: Load JWKS from file
-JWKS_FILE = os.getenv("JWKS_FILE", "jwks.json")
-
-# PCC Sandbox OAuth Endpoints
-AUTH_URL = "https://preview.pointclickcare.com/auth/oauth/v2/authorize"
 TOKEN_URL = "https://preview.pointclickcare.com/auth/oauth/v2/token"
+JWKS_FILE = os.getenv("JWKS_FILE", "jwks.json")
+CLIENT_ID = os.getenv("CLIENT_ID")
 
-app = FastAPI(title="PCC Sandbox Integration")
-
-
+# -------------------------
+# Load JWKS
+# -------------------------
 def load_jwks():
-    """
-    Load JWKS from jwks.json file.
-    """
-    try:
-        with open(JWKS_FILE, "r") as f:
-            return json.load(f)
-    except Exception:
-        return {
-            "keys": [
-                {
-                    "kty": "RSA",
-                    "kid": "abc123",
-                    "use": "sig",
-                    "alg": "RS384",
-                    "n": "YOUR_MODULUS_HERE",
-                    "e": "AQAB"
-                }
-            ]
-        }
-
-
-@app.get("/")
-def home():
-    pcc_login_url = (
-        f"{AUTH_URL}?"
-        f"response_type=code"
-        f"&client_id={CLIENT_ID}"
-        f"&redirect_uri={REDIRECT_URI}"
-        f"&scope=api"
-    )
-
-    return {
-        "message": "Welcome to your PCC Integration App",
-        "login_url": pcc_login_url,
-        "jwks_url": f"{REDIRECT_URI.rsplit('/callback', 1)[0]}/.well-known/jwks.json"
-    }
-
+    with open(JWKS_FILE, "r") as f:
+        return json.load(f)
 
 @app.get("/.well-known/jwks.json")
-def get_jwks():
-    """
-    Public endpoint PCC will use to retrieve your public key.
-    """
+def jwks():
     return load_jwks()
 
-
-@app.get("/callback")
-def callback(
-    code: str = Query(None),
-    error: str = Query(None)
-):
-    if error:
-        raise HTTPException(
-            status_code=400,
-            detail=f"PCC Login Error: {error}"
+# -------------------------
+# Load private key
+# -------------------------
+def load_private_key():
+    with open("private_key.pem", "rb") as f:
+        return serialization.load_pem_private_key(
+            f.read(),
+            password=None
         )
 
-    if not code:
-        raise HTTPException(
-            status_code=400,
-            detail="Authorization code missing from redirect."
-        )
+# -------------------------
+# Create JWT
+# -------------------------
+def create_jwt():
+    private_key = load_private_key()
+
+    now = int(time.time())
 
     payload = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": REDIRECT_URI,
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
+        "iss": CLIENT_ID,
+        "sub": CLIENT_ID,
+        "aud": TOKEN_URL,
+        "exp": now + 300,
+        "jti": str(now)
     }
 
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
+    token = jwt.encode(
+        payload,
+        private_key,
+        algorithm="RS384",
+        headers={"kid": "pcc-key-1"}
+    )
 
+    return token
+
+# -------------------------
+# Get Access Token (FIXED)
+# -------------------------
+@app.get("/token")
+def get_token():
     try:
-        response = requests.post(
-            TOKEN_URL,
-            data=payload,
-            headers=headers,
-            timeout=30
-        )
+        client_assertion = create_jwt()
 
-        response_data = response.json()
-
-        if response.status_code != 200:
-            return {
-                "status": "Failed to exchange token",
-                "pcc_error": response_data
-            }
-
-        return {
-            "status": "Successfully authenticated",
-            "access_token": response_data.get("access_token"),
-            "refresh_token": response_data.get("refresh_token"),
-            "expires_in_seconds": response_data.get("expires_in")
+        data = {
+            "grant_type": "client_credentials",
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "client_assertion": client_assertion
         }
 
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0"
+        }
+
+        response = requests.post(TOKEN_URL, data=data, headers=headers)
+
+        # DEBUG (important)
+        if response.status_code != 200:
+            return {
+                "status": "FAILED",
+                "code": response.status_code,
+                "text": response.text
+            }
+
+        return response.json()
+
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
+        raise HTTPException(status_code=500, detail=str(e))

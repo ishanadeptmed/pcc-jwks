@@ -1,2 +1,5 @@
 private_key.pem
 .env
+waste
+docs
+private.jwk
