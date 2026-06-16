@@ -5,3 +5,5 @@ fhir.resources
 jinja2
 requests
 python-dotenv
+PyJWT
+cryptography
